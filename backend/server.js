@@ -13,15 +13,15 @@ dotenv.config();
 const app = express();
 
 // --- Security middleware ---
-app.use(helmet());                         // Sets various HTTP security headers
-app.use(cors({ origin: '*' }));            // Allow all origins (lock down in production)
-app.use(express.json({ limit: '10kb' }));  // Parse JSON, cap body size to prevent abuse
-app.use(morgan('dev'));                     // Log every request to the console
+app.use(helmet());
+app.use(cors({ origin: '*' }));
+app.use(express.json({ limit: '10kb' }));
+app.use(morgan('dev'));
 
-// Rate limiter — prevents brute-force and DOS on auth endpoints
+// Rate limiter on auth endpoints
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minute window
-    max: 50,                  // max 50 requests per window per IP
+    windowMs: 15 * 60 * 1000,
+    max: 50,
     message: { message: 'Too many requests from this IP. Try again in 15 minutes.' }
 });
 
@@ -57,7 +57,11 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 const DB_URI = process.env.DB_URI || 'mongodb://127.0.0.1:27017/backend_dev_db';
 
-mongoose.connect(DB_URI)
+mongoose.set('strictQuery', false);
+
+mongoose.connect(DB_URI, {
+    serverSelectionTimeoutMS: 5000,
+})
     .then(() => {
         console.log('Connected to MongoDB');
         app.listen(PORT, () => {
@@ -66,6 +70,15 @@ mongoose.connect(DB_URI)
         });
     })
     .catch((err) => {
-        console.error('Database connection failed:', err.message);
+        console.error('---------------------------------------------------');
+        console.error('DATABASE CONNECTION FAILED');
+        console.error('---------------------------------------------------');
+        console.error('Could not connect to MongoDB at:', DB_URI);
+        console.error('');
+        console.error('Make sure MongoDB is running. Options:');
+        console.error('  1. Install MongoDB locally: https://www.mongodb.com/try/download/community');
+        console.error('  2. Use MongoDB Atlas (free): https://cloud.mongodb.com');
+        console.error('     Then update DB_URI in backend/.env');
+        console.error('---------------------------------------------------');
         process.exit(1);
     });
