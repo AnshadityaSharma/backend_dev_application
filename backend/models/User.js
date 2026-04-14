@@ -1,25 +1,39 @@
 const mongoose = require('mongoose');
 
-// We are defining the structure of a User document in MongoDB.
-// Think of it as a blueprint for what user data we store.
 const userSchema = new mongoose.Schema({
     username: {
         type: String,
-        required: [true, 'Please provide a username'],
+        required: [true, 'Username is required'],
         unique: true,
         trim: true,
+        minlength: [3, 'Username must be at least 3 characters'],
+        maxlength: [30, 'Username cannot exceed 30 characters'],
+    },
+    email: {
+        type: String,
+        required: [true, 'Email is required'],
+        unique: true,
+        trim: true,
+        lowercase: true,
+        match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address'],
     },
     password: {
         type: String,
-        required: [true, 'Please provide a password'],
-        minlength: 6,
+        required: [true, 'Password is required'],
+        minlength: [6, 'Password must be at least 6 characters'],
     },
     role: {
         type: String,
         enum: ['user', 'admin'],
-        default: 'user', // Most folks signing up will just be normal users
+        default: 'user',
     }
-}, { timestamps: true }); // Mongoose automagically adds createdAt and updatedAt fields!
+}, { timestamps: true });
 
-const User = mongoose.model('User', userSchema);
-module.exports = User;
+// Remove password from JSON responses by default
+userSchema.methods.toJSON = function () {
+    const user = this.toObject();
+    delete user.password;
+    return user;
+};
+
+module.exports = mongoose.model('User', userSchema);

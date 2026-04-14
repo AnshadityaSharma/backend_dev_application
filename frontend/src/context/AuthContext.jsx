@@ -1,34 +1,32 @@
-import React, { createContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { createContext, useState, useEffect } from 'react';
 
-// The AuthContext is here so we don't have to keep passing props down to tell components if we are logged in.
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // When the app starts, check if we have a token stored from a previous visit
+    // On mount, restore session from localStorage if available
     useEffect(() => {
-        const loggedInUserStr = localStorage.getItem('user');
-        if (loggedInUserStr) {
-            setUser(JSON.parse(loggedInUserStr));
+        const stored = localStorage.getItem('user');
+        if (stored) {
+            try {
+                setUser(JSON.parse(stored));
+            } catch {
+                localStorage.removeItem('user');
+            }
         }
         setLoading(false);
     }, []);
 
-    // Helper functions to handle logging in and out
     const login = (userData) => {
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
-        // We'll set the default axios auth header so we don't have to do it on every request
-        axios.defaults.headers.common['Authorization'] = `Bearer ${userData.token}`;
     };
 
     const logout = () => {
         setUser(null);
         localStorage.removeItem('user');
-        delete axios.defaults.headers.common['Authorization'];
     };
 
     return (

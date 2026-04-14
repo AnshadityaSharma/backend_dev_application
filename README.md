@@ -1,74 +1,130 @@
-# Fullstack Task Master Application 🚀
+# Task Manager — Fullstack REST API with Auth & RBAC
 
-Welcome to our fullstack Task Management Application! Built with a solid Node.js/Express backbone and a snazzy React frontend, it's designed to manage your tasks beautifully and securely.
-
-## 🌟 Highlights
-- **Sturdy Backend API**: Node.js + Express with MongoDB.
-- **Secure Authentication**: We use JWT (JSON Web Tokens) and bcrypt for password hashing.
-- **Role-Based Access Control**:
-  - `user`: Can create, edit, view, and delete their *own* tasks.
-  - `admin`: Superpowers! Can see tasks created by *anyone*.
-- **Premium Frontend UI**: A sleek, dark-themed React application built with Vanilla CSS for an amazing user experience.
-- **Auto-Generated Documentation**: Swagger UI integrated natively.
-
-## 🛠 Tech Stack
-- **Database**: MongoDB (via Mongoose)
-- **Backend API**: Express.js, Node.js
-- **Security**: jsonwebtoken, bcryptjs, cors
-- **Frontend App**: React, Vite, Axios, React Router v6
+A production-ready task management application featuring JWT authentication, role-based access control (user/admin), versioned REST APIs, input validation, and a React frontend.
 
 ---
 
-## 🚀 Getting Started
+## Features
 
-### 1️⃣ Clone and Setup
-Make sure you have Node.js and MongoDB running.
+### Backend
+- User registration and login with **bcrypt password hashing** and **JWT tokens**
+- **Role-based access control** — users manage their own tasks, admins can view/manage all
+- Full **CRUD API** for tasks (Create, Read, Update, Delete)
+- **API versioning** (`/api/v1/...`) for future-proof endpoints
+- **Input validation and sanitization** via `express-validator`
+- **Rate limiting** on auth endpoints to prevent brute-force attacks
+- **Helmet** for HTTP security headers
+- **Morgan** for request logging
+- **Swagger UI** auto-generated API documentation
 
-### 2️⃣ Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install the necessary packages:
-   ```bash
-   npm install
-   ```
-3. Set your environment variables in `backend/.env`:
-   ```env
-   PORT=5000
-   DB_URI=mongodb://127.0.0.1:27017/backend_dev_db
-   JWT_SECRET=super_secret_jwt_key_that_should_be_long_and_complex
-   ```
-4. Fire it up!
-   ```bash
-   npm run dev
-   ```
+### Frontend
+- Built with **React + Vite**
+- Register, login, and access a protected dashboard
+- Create, toggle status, and delete tasks from the UI
+- Displays success and error messages from API responses
+- Role-aware UI — admins see all users' tasks with ownership labels
 
-*(Your Swagger API Documentation will be live at `http://localhost:5000/api-docs` !)*
-
-### 3️⃣ Frontend Setup
-1. Open a new terminal and navigate to the frontend folder:
-   ```bash
-   cd frontend
-   ```
-2. Install those dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the dev server:
-   ```bash
-   npm run dev
-   ```
+### Database
+- **MongoDB** with Mongoose ODM
+- Indexed schemas with validation constraints
+- User schema: username (unique), email (unique), hashed password, role
+- Task schema: title, description, status (pending/in-progress/completed), priority (low/medium/high), user reference
 
 ---
 
-## 📈 Scalability Note 
+## Project Structure
 
-As this application grows, here is how we would scale it up to handle intense traffic:
+```
+backend/
+├── config/
+│   └── swagger.js           # Swagger/OpenAPI configuration
+├── controllers/
+│   ├── authController.js     # Register, login, getMe logic
+│   └── taskController.js     # CRUD operations for tasks
+├── middleware/
+│   ├── authMiddleware.js     # JWT verification & role-check middleware
+│   └── validate.js           # express-validator rules and error handler
+├── models/
+│   ├── User.js               # Mongoose user schema
+│   └── Task.js               # Mongoose task schema
+├── routes/v1/
+│   ├── authRoutes.js         # Auth endpoints with Swagger annotations
+│   └── taskRoutes.js         # Task endpoints with Swagger annotations
+├── server.js                 # App entry point
+├── .env.example              # Required environment variables
+└── package.json
 
-1. **Microservices Architecture**: We could break out "Authentication" and "Task Management" into own dedicated services. This way, if only tasks are receiving huge traffic, we can just spin up more instances of the task service without touching the auth service.
-2. **Caching Strategy with Redis**: Often users request the exact same static data repeatedly (like reading their tasks). Putting Redis between the Express app and MongoDB would keep the latest tasks in memory, drastically reducing the database load.
-3. **Load Balancing**: Using Nginx or AWS Application Load Balancer to distribute incoming traffic evenly across multiple instances of our backend server.
-4. **Containerization (Docker & Kubernetes)**: Dockerizing both the frontend and backend would make deployments bulletproof. Orchestrating them with Kubernetes would auto-heal failing nodes and scale up resources during peak hours.
+frontend/
+├── src/
+│   ├── config/api.js         # Centralized API base URL
+│   ├── context/AuthContext.jsx
+│   ├── pages/
+│   │   ├── Login.jsx
+│   │   ├── Register.jsx
+│   │   └── Dashboard.jsx
+│   ├── App.jsx
+│   └── index.css
+└── package.json
+```
 
-Enjoy building and exploring!
+---
+
+## Getting Started
+
+### Prerequisites
+- Node.js v18+
+- MongoDB running locally (or a MongoDB Atlas connection string)
+
+### Backend
+```bash
+cd backend
+cp .env.example .env        # Edit .env and set your JWT_SECRET
+npm install
+npm run dev                 # Starts on http://localhost:5000
+```
+
+API docs available at: **http://localhost:5000/api-docs**
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev                 # Starts on http://localhost:5173
+```
+
+---
+
+## API Endpoints
+
+| Method | Endpoint              | Access  | Description                |
+|--------|-----------------------|---------|----------------------------|
+| POST   | `/api/v1/auth/register` | Public  | Register a new user         |
+| POST   | `/api/v1/auth/login`    | Public  | Login and receive JWT       |
+| GET    | `/api/v1/auth/me`       | Private | Get current user profile    |
+| GET    | `/api/v1/tasks`         | Private | Get user's tasks            |
+| GET    | `/api/v1/tasks/:id`     | Private | Get a single task           |
+| POST   | `/api/v1/tasks`         | Private | Create a task               |
+| PUT    | `/api/v1/tasks/:id`     | Private | Update a task               |
+| DELETE | `/api/v1/tasks/:id`     | Private | Delete a task               |
+
+---
+
+## Scalability & Deployment Notes
+
+This project is structured to scale smoothly as traffic and complexity grow:
+
+1. **Microservices**: The auth and task modules are already decoupled through separate routes, controllers, and models. They can be extracted into independent services communicating via HTTP or a message queue (e.g., RabbitMQ).
+
+2. **Caching (Redis)**: Frequently-read data like task lists can be cached in Redis with a short TTL. This reduces MongoDB load significantly under high read volume.
+
+3. **Load Balancing**: Deploying multiple backend instances behind Nginx or an AWS ALB distributes traffic evenly and provides failover.
+
+4. **Containerization**: Both frontend and backend can be Dockerized. A `docker-compose.yml` would spin up the API, MongoDB, and Redis in one command. Kubernetes handles auto-scaling in production.
+
+5. **Rate Limiting & Security**: Already implemented with `express-rate-limit` and `helmet`. In production, add HTTPS and environment-specific CORS origins.
+
+---
+
+## License
+
+MIT

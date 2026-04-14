@@ -1,32 +1,40 @@
-import React, { useState, useContext } from 'react';
+import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import API_BASE from '../config/api';
 
 const Register = () => {
     const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    // Adding role so we can easily test admin features
     const [role, setRole] = useState('user');
-    const [error, setError] = useState(null);
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(null);
+        setError('');
+        setLoading(true);
+
         try {
-            // Send the registration request to our backend
-            const res = await axios.post('http://localhost:5000/api/auth/register', {
-                username,
-                password,
-                role
+            const { data } = await axios.post(`${API_BASE}/auth/register`, {
+                username, email, password, role
             });
-            // Automatically log them in after a successful registration
-            login(res.data);
+            login(data);
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create an account.');
+            // Show validation errors if available, otherwise generic message
+            const apiError = err.response?.data;
+            if (apiError?.errors) {
+                setError(apiError.errors.map(e => e.message).join('. '));
+            } else {
+                setError(apiError?.message || 'Registration failed.');
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -34,55 +42,63 @@ const Register = () => {
         <div className="auth-container">
             <div className="card">
                 <h2>Create Account</h2>
-                {error && <div className="error-msg">{error}</div>}
-                
+                {error && <div className="msg msg-error">{error}</div>}
+
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>Username</label>
-                        <input 
-                            type="text" 
+                        <label htmlFor="reg-username">Username</label>
+                        <input
+                            id="reg-username"
+                            type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Pick a cool username"
+                            placeholder="johndoe"
                             required
                         />
                     </div>
                     <div className="form-group">
-                        <label>Password</label>
-                        <input 
-                            type="password" 
+                        <label htmlFor="reg-email">Email</label>
+                        <input
+                            id="reg-email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            required
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="reg-password">Password</label>
+                        <input
+                            id="reg-password"
+                            type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Make it strong!"
+                            placeholder="Min 6 characters"
                             minLength="6"
                             required
                         />
                     </div>
                     <div className="form-group">
-                        <label>Role (for testing purposes)</label>
-                        <select 
-                            value={role} 
+                        <label htmlFor="reg-role">Role</label>
+                        <select
+                            id="reg-role"
+                            className="select-input"
+                            value={role}
                             onChange={(e) => setRole(e.target.value)}
-                            style={{ 
-                                width: '100%', 
-                                padding: '0.75rem 1rem', 
-                                borderRadius: '8px', 
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                background: 'rgba(15, 23, 42, 0.5)',
-                                color: 'white',
-                                fontSize: '1rem' 
-                            }}
                         >
-                            <option value="user">Regular User</option>
+                            <option value="user">User</option>
                             <option value="admin">Admin</option>
                         </select>
                     </div>
-                    <button type="submit" className="btn">Sign Up</button>
+                    <button type="submit" className="btn" disabled={loading}>
+                        {loading ? 'Creating account...' : 'Sign Up'}
+                    </button>
                 </form>
-                
-                <div className="link-text">
-                    Already have an account? <Link to="/">Log in</Link>
-                </div>
+
+                <p className="link-text">
+                    Already have an account? <Link to="/">Sign in</Link>
+                </p>
             </div>
         </div>
     );

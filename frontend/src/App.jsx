@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import { useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
@@ -6,15 +6,19 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import './index.css';
 
-// A simple component to wrap routes that should only be visible when logged in
-const ProtectedRoute = ({ children }) => {
+// Wrapper that redirects unauthenticated users to login
+function ProtectedRoute({ children }) {
     const { user, loading } = useContext(AuthContext);
-
     if (loading) return <div className="loader">Loading...</div>;
+    return user ? children : <Navigate to="/" replace />;
+}
 
-    // If not logged in, boot them back to the login page!
-    return user ? children : <Navigate to="/" />;
-};
+// Wrapper that redirects authenticated users away from login/register
+function GuestRoute({ children }) {
+    const { user, loading } = useContext(AuthContext);
+    if (loading) return <div className="loader">Loading...</div>;
+    return user ? <Navigate to="/dashboard" replace /> : children;
+}
 
 function App() {
     return (
@@ -22,20 +26,13 @@ function App() {
             <Router>
                 <div className="app-container">
                     <nav className="navbar">
-                        <h2>Task Master API</h2>
+                        <h2 className="navbar-brand">TaskManager</h2>
                     </nav>
                     <main className="main-content">
                         <Routes>
-                            <Route path="/" element={<Login />} />
-                            <Route path="/register" element={<Register />} />
-                            <Route 
-                                path="/dashboard" 
-                                element={
-                                    <ProtectedRoute>
-                                        <Dashboard />
-                                    </ProtectedRoute>
-                                } 
-                            />
+                            <Route path="/" element={<GuestRoute><Login /></GuestRoute>} />
+                            <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+                            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                         </Routes>
                     </main>
                 </div>

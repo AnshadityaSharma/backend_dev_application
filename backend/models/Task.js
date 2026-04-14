@@ -1,22 +1,29 @@
 const mongoose = require('mongoose');
 
-// The blueprint for a Task
 const taskSchema = new mongoose.Schema({
     title: {
         type: String,
-        required: [true, 'Task needs a title'],
+        required: [true, 'Task title is required'],
         trim: true,
+        maxlength: [100, 'Title cannot exceed 100 characters'],
     },
     description: {
         type: String,
         trim: true,
+        maxlength: [500, 'Description cannot exceed 500 characters'],
+        default: '',
     },
-    completed: {
-        type: Boolean,
-        default: false,
+    status: {
+        type: String,
+        enum: ['pending', 'in-progress', 'completed'],
+        default: 'pending',
     },
-    // We link the task to the user who created it.
-    // This helps in fetching only the tasks belonging to the logged-in user.
+    priority: {
+        type: String,
+        enum: ['low', 'medium', 'high'],
+        default: 'medium',
+    },
+    // ObjectId reference — links each task back to its owner
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -24,5 +31,7 @@ const taskSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-const Task = mongoose.model('Task', taskSchema);
-module.exports = Task;
+// Index on user field for faster lookups when filtering by owner
+taskSchema.index({ user: 1 });
+
+module.exports = mongoose.model('Task', taskSchema);

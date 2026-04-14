@@ -1,43 +1,44 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Middleware to protect routes that require authentication
+/**
+ * Protects routes by verifying the JWT in the Authorization header.
+ * Attaches the decoded user object to req.user for downstream handlers.
+ */
 const protect = async (req, res, next) => {
-    let token;
+    const authHeader = req.headers.authorization;
 
-    // Check if the auth header is provided and formatted properly "Bearer <token>"
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        try {
-            // Get token from header: "Bearer asdf1234..." -> "asdf1234..."
-            token = req.headers.authorization.split(' ')[1];
-
-            // Verify the token
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-            // Fetch the user from the database and attach it to the request object
-            // Exclude the password for security
-            req.user = await User.findById(decoded.id).select('-password');
-
-            // Move on to the next middleware or route handler!
-            next();
-        } catch (error) {
-            console.error('Invalid token error:', error);
-            res.status(401).json({ message: 'Not authorized, token failed' });
-        }
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Access denied. No token provided.' });
     }
 
-    if (!token) {
-        res.status(401).json({ message: 'Not authorized, no token provided' });
+    const token = authHeader.split(' ')[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Fetch the full user doc (minus password) so handlers have role info
+        const user = await User.findById(decoded.id).select('-password');
+        if (!user) {
+            return res.status(401).json({ message: 'Token valid but user no longer exists.' });
+        }
+
+        req.user = user;
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Invalid or expired token.' });
     }
 };
 
-// Optional: A little helper middleware to enforce admin-only access
+/**
+ * Restricts access to admin-only routes.
+ * Must be used AFTER the protect middleware.
+ */
 const adminOnly = (req, res, next) => {
     if (req.user && req.user.role === 'admin') {
-        next();
-    } else {
-        res.status(403).json({ message: 'Not authorized as an admin' });
+        return next();
     }
+    return res.status(403).json({ message: 'Forbidden. Admin access required.' });
 };
 
 module.exports = { protect, adminOnly };

@@ -1,11 +1,16 @@
-# Node
+# Dependencies
 node_modules/
+
+# Environment files (contain secrets)
 .env
 
-# Custom
-forAnsh
-forAnsh.md
+# Build output
+dist/
 
-# OS files
+# OS junk
 .DS_Store
 Thumbs.db
+
+# Private notes — DO NOT push
+forAnsh
+forAnsh.*

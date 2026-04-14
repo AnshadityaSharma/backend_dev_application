@@ -1,173 +1,197 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
-import { Trash2, Edit2, LogOut, CheckCircle, Circle } from 'lucide-react';
+import { Trash2, LogOut, CheckCircle, Circle, AlertTriangle } from 'lucide-react';
+import API_BASE from '../config/api';
 
 const Dashboard = () => {
     const { user, logout } = useContext(AuthContext);
+    const navigate = useNavigate();
+
     const [tasks, setTasks] = useState([]);
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
+    const [priority, setPriority] = useState('medium');
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
-    // Fetch tasks when the component loads
+    // Auth header for every API call
+    const authHeaders = { headers: { Authorization: `Bearer ${user.token}` } };
+
+    // Auto-clear messages after 3 seconds
+    useEffect(() => {
+        if (error || success) {
+            const timer = setTimeout(() => { setError(''); setSuccess(''); }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [error, success]);
+
     useEffect(() => {
         fetchTasks();
     }, []);
 
     const fetchTasks = async () => {
         try {
-            // Admins can see all tasks by adding ?all=true
-            const url = user.role === 'admin' 
-                ? 'http://localhost:5000/api/tasks?all=true' 
-                : 'http://localhost:5000/api/tasks';
-                
-            const res = await axios.get(url, {
-                headers: { Authorization: `Bearer ${user.token}` }
-            });
-            setTasks(res.data);
-            setLoading(false);
+            const url = user.role === 'admin'
+                ? `${API_BASE}/tasks?all=true`
+                : `${API_BASE}/tasks`;
+            const { data } = await axios.get(url, authHeaders);
+            setTasks(data.tasks);
         } catch (err) {
-            console.error(err);
-            setError('Failed to fetch tasks.');
+            setError('Could not load tasks.');
+        } finally {
             setLoading(false);
         }
     };
 
-    const handleCreateTask = async (e) => {
+    const handleCreate = async (e) => {
         e.preventDefault();
         if (!title.trim()) return;
 
         try {
-            const res = await axios.post('http://localhost:5000/api/tasks', 
-                { title, description },
-                { headers: { Authorization: `Bearer ${user.token}` }}
+            const { data } = await axios.post(`${API_BASE}/tasks`,
+                { title, description, priority },
+                authHeaders
             );
-            // Add the new task to our state without refreshing the page
-            setTasks([res.data, ...tasks]);
+            setTasks([data, ...tasks]);
             setTitle('');
             setDescription('');
+            setPriority('medium');
+            setSuccess('Task created!');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create task');
+            setError(err.response?.data?.message || 'Failed to create task.');
         }
     };
 
-    const handleDeleteTask = async (id) => {
+    const handleDelete = async (id) => {
         try {
-            await axios.delete(`http://localhost:5000/api/tasks/${id}`, {
-                headers: { Authorization: `Bearer ${user.token}` }
-            });
-            // Remove it from the UI by filtering it out
+            await axios.delete(`${API_BASE}/tasks/${id}`, authHeaders);
             setTasks(tasks.filter(t => t._id !== id));
+            setSuccess('Task deleted.');
         } catch (err) {
-            setError('Could not delete task. Are you sure you own it?');
+            setError(err.response?.data?.message || 'Failed to delete task.');
         }
     };
 
-    const toggleTaskStatus = async (task) => {
+    const handleToggleStatus = async (task) => {
+        const newStatus = task.status === 'completed' ? 'pending' : 'completed';
         try {
-            const res = await axios.put(`http://localhost:5000/api/tasks/${task._id}`, 
-                { completed: !task.completed },
-                { headers: { Authorization: `Bearer ${user.token}` } }
+            const { data } = await axios.put(`${API_BASE}/tasks/${task._id}`,
+                { status: newStatus },
+                authHeaders
             );
-            
-            // Replace the updated task in our state list
-            setTasks(tasks.map(t => t._id === task._id ? res.data : t));
+            setTasks(tasks.map(t => t._id === task._id ? data : t));
         } catch (err) {
-            setError('Failed to update task status.');
+            setError('Failed to update task.');
         }
     };
 
-    if (loading) return <div style={{ padding: '2rem' }}>Loading your dashboard...</div>;
+    const handleLogout = () => {
+        logout();
+        navigate('/');
+    };
+
+    if (loading) return <div className="loader">Loading dashboard...</div>;
 
     return (
         <div>
+            {/* Header */}
             <div className="dashboard-header">
                 <div>
-                    <h1>Hello, {user.username}! 👋</h1>
-                    <p style={{ color: 'var(--text-muted)' }}>
-                        You are logged in as an <strong>{user.role}</strong>
+                    <h1>Welcome, {user.username}</h1>
+                    <p className="text-muted">
+                        Role: <span className="badge">{user.role}</span>
                     </p>
                 </div>
-                <button onClick={logout} className="logout-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <LogOut size={18} /> Logout
+                <button onClick={handleLogout} className="logout-btn">
+                    <LogOut size={16} /> Logout
                 </button>
             </div>
 
-            {error && <div className="error-msg">{error}</div>}
+            {/* Feedback messages */}
+            {error && <div className="msg msg-error"><AlertTriangle size={16} /> {error}</div>}
+            {success && <div className="msg msg-success"><CheckCircle size={16} /> {success}</div>}
 
-            <form onSubmit={handleCreateTask} className="create-task-form">
-                <h3>Create a New Task</h3>
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        <input 
-                            type="text" 
-                            placeholder="Task Title..." 
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            required
-                        />
-                        <input 
-                            type="text" 
-                            placeholder="Optional description" 
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                        />
-                    </div>
-                    <button type="submit" className="btn" style={{ width: 'auto', alignSelf: 'flex-start' }}>
-                        Add Task
-                    </button>
+            {/* Create task form */}
+            <form onSubmit={handleCreate} className="create-task-form">
+                <h3>New Task</h3>
+                <div className="form-row">
+                    <input
+                        type="text"
+                        placeholder="Task title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        required
+                    />
+                    <input
+                        type="text"
+                        placeholder="Description (optional)"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                    />
+                    <select
+                        className="select-input"
+                        value={priority}
+                        onChange={(e) => setPriority(e.target.value)}
+                    >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                    <button type="submit" className="btn" style={{ minWidth: '120px' }}>Add</button>
                 </div>
             </form>
 
+            {/* Tasks list */}
             <h3 style={{ marginBottom: '1rem' }}>
-                {user.role === 'admin' ? "All Users' Tasks (Admin View)" : "Your Tasks"}
+                {user.role === 'admin' ? 'All Tasks (Admin)' : 'Your Tasks'}
+                <span className="text-muted" style={{ fontSize: '0.9rem', marginLeft: '0.5rem' }}>
+                    ({tasks.length})
+                </span>
             </h3>
 
-            <div className="task-grid">
-                {tasks.length === 0 ? (
-                    <p style={{ color: 'var(--text-muted)' }}>No tasks here yet. Create one above!</p>
-                ) : (
-                    tasks.map(task => (
-                        <div key={task._id} className="task-card">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div>
-                                    <h4 className="task-title" style={{ textDecoration: task.completed ? 'line-through' : 'none', color: task.completed ? 'var(--text-muted)' : 'inherit' }}>
-                                        {task.title}
-                                    </h4>
-                                    <p className="task-desc">{task.description}</p>
-                                    
-                                    {/* Show who owns the task if we're an admin */}
-                                    {user.role === 'admin' && task.user && (
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>
-                                            Owner: {task.user.username || 'Unknown'}
-                                        </div>
-                                    )}
-                                </div>
+            {tasks.length === 0 ? (
+                <p className="text-muted">No tasks yet. Create your first one above.</p>
+            ) : (
+                <div className="task-grid">
+                    {tasks.map(task => (
+                        <div key={task._id} className={`task-card ${task.status === 'completed' ? 'task-done' : ''}`}>
+                            <div className="task-header">
+                                <h4 className="task-title">{task.title}</h4>
+                                <span className={`priority-badge priority-${task.priority}`}>
+                                    {task.priority}
+                                </span>
                             </div>
-                            
+
+                            {task.description && <p className="task-desc">{task.description}</p>}
+
+                            {user.role === 'admin' && task.user && (
+                                <p className="task-owner">by {task.user.username || 'unknown'}</p>
+                            )}
+
                             <div className="actions">
-                                <button 
-                                    className="btn btn-secondary" 
-                                    style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', borderColor: task.completed ? 'var(--success)' : '' }}
-                                    onClick={() => toggleTaskStatus(task)}
+                                <button
+                                    className={`btn btn-sm ${task.status === 'completed' ? 'btn-success' : 'btn-secondary'}`}
+                                    onClick={() => handleToggleStatus(task)}
                                 >
-                                    {task.completed ? <CheckCircle size={18} color="var(--success)" /> : <Circle size={18} />}
-                                    {task.completed ? 'Done' : 'Mark Done'}
+                                    {task.status === 'completed'
+                                        ? <><CheckCircle size={14} /> Done</>
+                                        : <><Circle size={14} /> Pending</>
+                                    }
                                 </button>
-                                <button 
-                                    className="btn btn-danger" 
-                                    style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
-                                    onClick={() => handleDeleteTask(task._id)}
+                                <button
+                                    className="btn btn-sm btn-danger"
+                                    onClick={() => handleDelete(task._id)}
                                 >
-                                    <Trash2 size={18} /> Delete
+                                    <Trash2 size={14} /> Delete
                                 </button>
                             </div>
                         </div>
-                    ))
-                )}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
