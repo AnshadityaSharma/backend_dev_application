@@ -1,0 +1,11 @@
+# Node
+node_modules/
+.env
+
+# Custom
+forAnsh
+forAnsh.md
+
+# OS files
+.DS_Store
+Thumbs.db
